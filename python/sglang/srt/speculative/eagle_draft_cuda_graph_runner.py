@@ -377,6 +377,10 @@ class EAGLEDraftCudaGraphRunner:
             buffers.seq_lens.fill_(self.seq_len_fill_value)
             buffers.out_cache_loc.zero_()
             buffers.positions.zero_()
+            buffers.topk_p.zero_()
+            buffers.topk_index.zero_()
+            buffers.hidden_states.zero_()
+            buffers.req_pool_indices.zero_()
 
         num_tokens = bs * self.num_tokens_per_bs
 
@@ -386,8 +390,12 @@ class EAGLEDraftCudaGraphRunner:
             forward_batch.out_cache_loc
         )
         buffers.positions[:raw_num_token].copy_(forward_batch.positions)
-        buffers.topk_p[:raw_bs].copy_(forward_batch.spec_info.topk_p)
-        buffers.topk_index[:raw_bs].copy_(forward_batch.spec_info.topk_index)
+        buffers.topk_p[:raw_bs].copy_(forward_batch.spec_info.topk_p.clamp(0, 1))
+        buffers.topk_index[:raw_bs].copy_(
+            forward_batch.spec_info.topk_index.clamp(
+                0, self.model_runner.model_config.vocab_size - 1
+            )
+        )
         buffers.hidden_states[:raw_bs].copy_(forward_batch.spec_info.hidden_states)
         buffers.req_pool_indices[:raw_bs].copy_(forward_batch.req_pool_indices)
 
