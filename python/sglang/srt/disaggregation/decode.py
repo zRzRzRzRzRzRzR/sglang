@@ -939,8 +939,16 @@ class DecodePreallocQueue:
         self.req_to_token_pool.write((req.req_pool_idx, slice(0, len(kv_loc))), kv_loc)
 
         # populate metadata
-        req.fill_ids = req.origin_input_ids + req.output_ids
+        # Drop output_ids[-1] so len(fill_ids) == fill_len: the last sampled
+        # token's KV was never saved (only fill_len slots are valid), and on
+        # retract-resume it is re-fed as the next decode input.
+        req.fill_ids = req.origin_input_ids + req.output_ids[:-1]
         req.set_extend_input_len(len(req.fill_ids))
+        assert len(req.fill_ids) == fill_len, (
+            f"_pre_alloc fill_ids/fill_len mismatch: "
+            f"len(fill_ids)={len(req.fill_ids)} vs fill_len={fill_len} "
+            f"(origin={len(req.origin_input_ids)}, output={len(req.output_ids)})"
+        )
 
         # Return the transfer destination indices:
         if self.scheduler.enable_hisparse:
