@@ -1155,12 +1155,11 @@ class EAGLEWorker(TpModelWorker):
             logits_output = self.cuda_graph_runner_for_draft_extend.replay(
                 forward_batch
             )
-            # detach from cuda graph buffers; next replay will overwrite these slices
             forward_batch.spec_info.topk_p, forward_batch.spec_info.topk_index = (
-                logits_output.topk_p.clone(),
-                logits_output.topk_index.clone(),
+                logits_output.topk_p,
+                logits_output.topk_index,
             )
-            forward_batch.spec_info.hidden_states = logits_output.hidden_states.clone()
+            forward_batch.spec_info.hidden_states = logits_output.hidden_states
         else:
             forward_batch.can_run_dp_cuda_graph = False
             if not forward_batch.forward_mode.is_idle():

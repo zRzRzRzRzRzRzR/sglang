@@ -25,6 +25,7 @@ from sglang.srt.model_executor.forward_batch_info import (
 )
 from sglang.srt.model_executor.input_buffers import ForwardInputBuffers
 from sglang.srt.speculative.eagle_info import EagleDraftInput
+from sglang.srt.speculative.spec_utils import maybe_detect_nan, maybe_detect_oob
 from sglang.srt.utils import (
     require_attn_tp_gather,
     require_gathered_buffer,
@@ -397,17 +398,17 @@ class EAGLEDraftCudaGraphRunner:
             forward_batch.out_cache_loc
         )
         buffers.positions[:raw_num_token].copy_(forward_batch.positions)
-        assert (
-            (forward_batch.spec_info.topk_p >= 0)
-            & (forward_batch.spec_info.topk_p <= 1)
-        ).all(), "topk_p out of range [0, 1]"
-        assert (
-            (forward_batch.spec_info.topk_index >= 0)
-            & (
-                forward_batch.spec_info.topk_index
-                < self.model_runner.model_config.vocab_size
-            )
-        ).all(), "topk_index out of range [0, vocab_size)"
+        maybe_detect_nan(
+            forward_batch.spec_info.topk_p,
+            "EagleDraftCudaGraphRunner.replay: topk_p",
+        )
+        maybe_detect_oob(
+            forward_batch.spec_info.topk_index,
+            0,
+            self.model_runner.model_config.vocab_size,
+            "EagleDraftCudaGraphRunner.replay: topk_index vs vocab_size="
+            f"{self.model_runner.model_config.vocab_size}",
+        )
         buffers.topk_p[:raw_bs].copy_(forward_batch.spec_info.topk_p)
         buffers.topk_index[:raw_bs].copy_(forward_batch.spec_info.topk_index)
         buffers.hidden_states[:raw_bs].copy_(forward_batch.spec_info.hidden_states)
